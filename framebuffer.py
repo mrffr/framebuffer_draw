@@ -86,6 +86,7 @@ class Framebuffer():
         self.tty = 0
         self.finfo = 0  # fixed screen info
         self.vinfo = 0  # var screen info
+        self.fbp = 0  # frame buffer pointer
 
     def open(self):
         '''Open framebuffer and tty'''
@@ -119,16 +120,21 @@ class Framebuffer():
         fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
         self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
 
+        # TODO: DO I NEED THIS??
+        self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
+        self.fbp.seek(0)
+
     def clear(self):
-        self.dev.seek(0)
-        self.dev.write(bytes(0) * self.finfo.smem_len)
+        self.fbp.seek(0)
+        self.fbp.write(bytes(0) * self.finfo.smem_len)
 
     def colour_pixels(self, offset, length, colour):
-        self.dev.seek(0)
-        self.dev.seek(offset)
-        self.dev.write(colour * length)
+        self.fbp.seek(0)
+        self.fbp.seek(offset)
+        self.fbp.write(colour * length)
 
     def close(self):
+        self.fbp.close()  # munmap
         # fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
         self.dev.close()
         self.tty.close()
