@@ -12,7 +12,7 @@ def pix_colour(r, g, b, vinfo):
 
 def main():
     f = framebuffer.Framebuffer()
-    f.open('/dev/fb0')
+    f.open()
     f.get_fb_info()
     # print(f.finfo.__dict__)
     # print(f.vinfo.__dict__)

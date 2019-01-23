@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# TODO:
+# FBIOPUT_VSCREENINFO
+# large assumptions
+
 import sys
 import fcntl
 import struct
@@ -80,26 +84,28 @@ class Framebuffer():
     def __init__(self):
         self.dev = 0
         self.tty = 0
-        self.finfo = 0
-        self.vinfo = 0
-        self.fbp = 0
+        self.finfo = 0  # fixed screen info
+        self.vinfo = 0  # var screen info
 
-    def open(self, dev_name):
+    def open(self):
+        '''Open framebuffer and tty'''
         try:
-            self.dev = open(dev_name, 'r+b')
+            self.dev = open("/dev/fb0", 'r+b')
             self.dev.seek(0)
         except FileNotFoundError:
-            print("Error: " + dev_name + " not found!")
+            print("Error: /dev/fb0 not found!")
             sys.exit(-1)
 
         try:
+            # set tty to turn off cursor and blinking
             self.tty = open("/dev/tty", 'w')
-            fcntl.ioctl(self.tty, KDSETMODE, KD_GRAPHICS)
+            # fcntl.ioctl(self.tty, KDSETMODE, KD_GRAPHICS)
         except FileNotFoundError:
             print("Error: Can't open /dev/tty!")
             sys.exit(-1)
 
     def get_fb_info(self):
+        '''Get fixed and variable screen info'''
         # TODO clean this up and error check
         var_fmt = "8I 3I 3I 3I 3I 16I 4I"
         junk_buf = [0 for i in range(40)]
@@ -113,23 +119,16 @@ class Framebuffer():
         fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
         self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
 
-        self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
-        self.fbp.seek(0)
-
     def clear(self):
-        self.fbp.seek(0)
-        self.fbp.write(bytes(0) * self.finfo.smem_len)
+        self.dev.seek(0)
+        self.dev.write(bytes(0) * self.finfo.smem_len)
 
     def colour_pixels(self, offset, length, colour):
-        self.fbp.seek(0)
-        self.fbp.seek(offset)
-        self.fbp.write(colour * length)
-        # self.dev.seek(offset)
-        # self.dev.write(colour * length)
-        # self.dev.truncate(self.size)
+        self.dev.seek(0)
+        self.dev.seek(offset)
+        self.dev.write(colour * length)
 
     def close(self):
-        self.fbp.close()  # munmap
-        fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
+        # fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
         self.dev.close()
         self.tty.close()
