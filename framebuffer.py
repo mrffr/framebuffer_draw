@@ -79,7 +79,7 @@ class Framebuffer():
 
     def open(self, dev_name):
         try:
-            self.dev = open(dev_name, 'r+')
+            self.dev = open(dev_name, 'rb+')
         except FileNotFoundError:
             print("Error: " + dev_name + " not found!")
             sys.exit(-1)
@@ -97,6 +97,10 @@ class Framebuffer():
         var_buf = struct.pack(var_fmt, *junk_buf)
         fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
         self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
+
+    def colour_pixel(self, offset, colour):
+        self.dev.seek(offset)
+        self.dev.write(colour)
 
     def write(self, output):
         self.dev.seek(0)
