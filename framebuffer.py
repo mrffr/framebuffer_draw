@@ -8,6 +8,10 @@ import mmap
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
 
+KDSETMODE = 0x4B3A
+KD_TEXT = 0x00
+KD_GRAPHICS = 0x01
+
 
 class Finfo_struct:
     # TODO return members in order
@@ -89,7 +93,8 @@ class Framebuffer():
             sys.exit(-1)
 
         try:
-            self.tty = open("/dev/tty", 'r')
+            self.tty = open("/dev/tty", 'w')
+            fcntl.ioctl(self.tty, KDSETMODE, KD_GRAPHICS)
         except FileNotFoundError:
             print("Error: Can't open /dev/tty!")
             sys.exit(-1)
@@ -125,4 +130,6 @@ class Framebuffer():
 
     def close(self):
         self.fbp.close()  # munmap
+        fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
         self.dev.close()
+        self.tty.close()

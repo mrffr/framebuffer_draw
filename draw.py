@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import framebuffer
-import sys
 import struct
+import sys
+import time
 
 
 def pix_colour(r, g, b, vinfo):
@@ -22,6 +23,7 @@ def main():
         location = (y + f.vinfo.yoffset) * f.finfo.line_length
         col = struct.pack('I', pix_colour(y % 255, 255, 255, f.vinfo))
         f.colour_pixels(location, f.vinfo.xres, col)
+    time.sleep(1)
 
     f.close()
 
