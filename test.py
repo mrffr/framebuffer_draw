@@ -5,7 +5,12 @@ import framebuffer
 
 
 class TestFramebufferDraw(unittest.TestCase):
-    pass
+    def test_no_framebuffer(self):
+        f = framebuffer.Framebuffer()
+        with self.assertRaises(SystemExit) as cm:
+            f.open('/dev/fb1')
+        exc = cm.exception
+        self.assertEqual(exc.code, -1)
 
 
 if __name__ == '__main__':
