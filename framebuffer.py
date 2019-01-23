@@ -3,32 +3,33 @@
 import sys
 import fcntl
 import struct
-from collections import namedtuple
 
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
 
 
 class Finfo_struct:
+    # TODO return members in order
     def __init__(self, args):
-        self.id = args[1]
-        self.smem_start = args[2]
-        self.smem_len = args[3]
-        self.type = args[4]
-        self.type_aux = args[5]
-        self.visual = args[6]
-        self.xpanstep = args[7]
-        self.ypanstep = args[8]
-        self.ywrapstep = args[9]
-        self.line_length = args[10]
-        self.mmio_start = args[11]
-        self.mmio_len = args[12]
-        self.accel = args[13]
-        self.capabilities = args[14]
-        self.reserved = args[15:]
+        self.id = args[0]
+        self.smem_start = args[1]
+        self.smem_len = args[2]
+        self.type = args[3]
+        self.type_aux = args[4]
+        self.visual = args[5]
+        self.xpanstep = args[6]
+        self.ypanstep = args[7]
+        self.ywrapstep = args[8]
+        self.line_length = args[9]
+        self.mmio_start = args[10]
+        self.mmio_len = args[11]
+        self.accel = args[12]
+        self.capabilities = args[13]
+        self.reserved = args[14:]
 
 
 class Fb_bitfield:
+    # TODO return members in order
     def __init__(self, offset, length, msb_right):
         self.offset = offset
         self.length = length
@@ -36,6 +37,7 @@ class Fb_bitfield:
 
 
 class Vinfo_struct:
+    # TODO return members in order
     def __init__(self, args):
         self.xres = args[0]
         self.yres = args[1]
@@ -84,19 +86,19 @@ class Framebuffer():
 
     def get_fb_info(self):
         # TODO clean this up and error check
-        fix_fmt = "<16sL4I3HIL2I2H"
-        junk_buf = [bytes(0)] + [0 for i in range(14)]
+        fix_fmt = "16s L 4I 3H I L 2I 3H"  # white space is ignored
+        junk_buf = [bytes(0)] + [0 for i in range(15)]
         fix_buf = struct.pack(fix_fmt, *junk_buf)
         fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
         self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
-        print(self.finfo.line_length)
+        print(self.finfo.__dict__)
 
-        var_fmt = "8I3I3I3I3I16I4I"
+        var_fmt = "8I 3I 3I 3I 3I 16I 4I"
         junk_buf = [0 for i in range(40)]
         var_buf = struct.pack(var_fmt, *junk_buf)
         fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
         self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
-        print(self.vinfo.xres)
+        print(self.vinfo.__dict__)
 
     def test_fill(self):
         pass
