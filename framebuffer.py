@@ -3,6 +3,7 @@
 import sys
 import fcntl
 import struct
+import mmap
 
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
@@ -74,38 +75,54 @@ class Framebuffer():
     '''Framebuffer device'''
     def __init__(self):
         self.dev = 0
+        self.tty = 0
         self.finfo = 0
         self.vinfo = 0
+        self.fbp = 0
 
     def open(self, dev_name):
         try:
-            self.dev = open(dev_name, 'rb+')
+            self.dev = open(dev_name, 'r+b')
+            self.dev.seek(0)
         except FileNotFoundError:
             print("Error: " + dev_name + " not found!")
             sys.exit(-1)
 
+        try:
+            self.tty = open("/dev/tty", 'r')
+        except FileNotFoundError:
+            print("Error: Can't open /dev/tty!")
+            sys.exit(-1)
+
     def get_fb_info(self):
         # TODO clean this up and error check
-        fix_fmt = "16s L 4I 3H I L 2I 3H"  # white space is ignored
-        junk_buf = [bytes(0)] + [0 for i in range(15)]
-        fix_buf = struct.pack(fix_fmt, *junk_buf)
-        fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
-        self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
-
         var_fmt = "8I 3I 3I 3I 3I 16I 4I"
         junk_buf = [0 for i in range(40)]
         var_buf = struct.pack(var_fmt, *junk_buf)
         fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
         self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
 
-    def colour_pixel(self, offset, colour):
-        self.dev.seek(offset)
-        self.dev.write(colour)
+        fix_fmt = "16s L 4I 3H I L 2I 3H"  # white space is ignored
+        junk_buf = [bytes(0)] + [0 for i in range(15)]
+        fix_buf = struct.pack(fix_fmt, *junk_buf)
+        fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
+        self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
 
-    def write(self, output):
-        self.dev.seek(0)
-        self.dev.write(output)
-        self.dev.truncate()
+        self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
+        self.fbp.seek(0)
+
+    def clear(self):
+        self.fbp.seek(0)
+        self.fbp.write(bytes(0) * self.finfo.smem_len)
+
+    def colour_pixels(self, offset, length, colour):
+        self.fbp.seek(0)
+        self.fbp.seek(offset)
+        self.fbp.write(colour * length)
+        # self.dev.seek(offset)
+        # self.dev.write(colour * length)
+        # self.dev.truncate(self.size)
 
     def close(self):
+        self.fbp.close()  # munmap
         self.dev.close()
