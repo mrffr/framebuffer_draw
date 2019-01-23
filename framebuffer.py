@@ -91,35 +91,17 @@ class Framebuffer():
         fix_buf = struct.pack(fix_fmt, *junk_buf)
         fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
         self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
-        print(self.finfo.__dict__)
 
         var_fmt = "8I 3I 3I 3I 3I 16I 4I"
         junk_buf = [0 for i in range(40)]
         var_buf = struct.pack(var_fmt, *junk_buf)
         fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
         self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
-        print(self.vinfo.__dict__)
 
-    def test_fill(self):
-        pass
-
-    def write(self):
+    def write(self, output):
         self.dev.seek(0)
-        self.dev.write(self.dev)
+        self.dev.write(output)
         self.dev.truncate()
 
     def close(self):
         self.dev.close()
-
-
-def main():
-    f = Framebuffer()
-    f.open('/dev/fb0')
-    f.get_fb_info()
-    f.test_fill()
-    f.close()
-
-
-if __name__ == '__main__':
-    main()
-    sys.exit(0)
