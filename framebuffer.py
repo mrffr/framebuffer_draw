@@ -2,7 +2,7 @@
 
 import sys
 import fcntl
-import array
+import struct
 
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
@@ -23,8 +23,14 @@ class Framebuffer():
             sys.exit(-1)
 
     def get_fb_info(self):
-        buf = array.array('h', [0])
-        fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, buf, 1)
+        fix_fmt = "<16sL4I3HIL2I2H"
+        fb_fix_screen_info = struct.pack(fix_fmt, bytes(0),0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+        wtf = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fb_fix_screen_info, 1)
+
+        var_fmt = "8I3I3I3I3I16I4I"
+        fb_var_screen_info = struct.pack(var_fmt, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                                         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+        wtf = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, fb_var_screen_info, 1)
 
     def write(self):
         self.dev.seek(0)
