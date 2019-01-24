@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
-# TODO:
-# FBIOPUT_VSCREENINFO
-# large assumptions
-# die sanely and restore tty
-
 import sys
 import fcntl
 import mmap
 import ctypes
 
 FBIOGET_VSCREENINFO = 0x4600
+FBIOPUT_VSCREENINFO = 0x4601
 FBIOGET_FSCREENINFO = 0x4602
 
 KDSETMODE = 0x4B3A
@@ -86,6 +82,7 @@ class Framebuffer():
         self.tty = 0
         self.finfo = 0  # fixed screen info
         self.vinfo = 0  # var screen info
+        self.orig_vinfo = 0  # original var screen info
         self.fbp = 0  # frame buffer pointer
 
     def open(self):
@@ -109,27 +106,37 @@ class Framebuffer():
         fixed_buf = Finfo_struct()
         if(fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fixed_buf, True) != 0):
             print("Error getting fixed screen info!")
-            sys.exit(-1)
+            self._close_fb()
         self.finfo = Finfo_struct.from_buffer_copy(fixed_buf)
 
     def get_vinfo(self):
         var_buf = Vinfo_struct()
         if(fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True) != 0):
             print("Error getting variable screen info!")
-            sys.exit(-1)
+            self._close_fb()
         self.vinfo = Vinfo_struct.from_buffer_copy(var_buf)
+        self.orig_vinfo = Vinfo_struct.from_buffer_copy(var_buf)
 
     def put_vinfo(self):
-        # TODO
-        pass
+        '''change variable info'''
+        # TODO: issues with this working properly
+        vinfo = bytes(self.vinfo) # serialize ctype struct
+        if(fcntl.ioctl(self.dev, FBIOPUT_VSCREENINFO, vinfo, True) != 0):
+            print("Error setting variable screen info!")
+
+    def restore_vinfo(self):
+        '''call this to "restore" the var info in case it was set'''
+        self.vinfo = self.orig_vinfo
+        self.put_vinfo()
 
     def memmap_fb(self):
         '''mmap the framebuffer device so that fbp points to it'''
-        self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
+        # defaults for mmap are fine
+        self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)
         self.fbp.seek(0)
 
     def setup(self):
-        '''get fixed and var info and setup memmap for framebuffer'''
+        '''get fixed and variable info and setup memmap for framebuffer'''
         self.get_finfo()
         self.get_vinfo()
         self.memmap_fb()
@@ -137,15 +144,24 @@ class Framebuffer():
     def clear(self):
         '''clear the framebuffer'''
         self.fbp.seek(0)
-        self.fbp.write(bytes(0) * self.finfo.smem_len)
+        self.fbp.write(bytes(1) * self.finfo.smem_len) # potential here
 
     def colour_pixels(self, offset, length, colour):
+        # prevent some out of bounds drawing - things will wrap around though
+        if offset + length >= self.finfo.smem_len or offset <= 0:
+            return
         self.fbp.seek(0)
         self.fbp.seek(offset)
         self.fbp.write(colour * length)
 
-    def close(self):
-        self.fbp.close()  # munmap
-        # fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
+    def _close_fb(self):
+        # die and clean up otherwise bad things will happen
+        fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
         self.dev.close()
         self.tty.close()
+
+    def close(self):
+        '''close the framebuffer'''
+        self.fbp.close()  # munmap
+        self._close_fb()
+        
