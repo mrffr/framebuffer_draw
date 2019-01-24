@@ -9,6 +9,7 @@ import sys
 import fcntl
 import struct
 import mmap
+import ctypes
 
 FBIOGET_VSCREENINFO = 0x4600
 FBIOGET_FSCREENINFO = 0x4602
@@ -18,25 +19,24 @@ KD_TEXT = 0x00
 KD_GRAPHICS = 0x01
 
 
-class Finfo_struct:
-    # TODO return members in order
-    def __init__(self, args):
-        self.id = args[0]
-        self.smem_start = args[1]
-        self.smem_len = args[2]
-        self.type = args[3]
-        self.type_aux = args[4]
-        self.visual = args[5]
-        self.xpanstep = args[6]
-        self.ypanstep = args[7]
-        self.ywrapstep = args[8]
-        self.line_length = args[9]
-        self.mmio_start = args[10]
-        self.mmio_len = args[11]
-        self.accel = args[12]
-        self.capabilities = args[13]
-        self.reserved = args[14:]
-
+class Finfo_struct(ctypes.Structure):
+    _fields_ = [
+        ("id", ctypes.c_char * 16),
+        ("smem_start", ctypes.c_ulong),
+        ("smem_len", ctypes.c_uint32),
+        ("type", ctypes.c_uint32),
+        ("type_aux", ctypes.c_uint32),
+        ("visual", ctypes.c_uint32),
+        ("xpanstep", ctypes.c_uint16),
+        ("ypanstep", ctypes.c_uint16),
+        ("ywrapstep", ctypes.c_uint16),
+        ("line_length", ctypes.c_uint32),
+        ("mmio_start", ctypes.c_ulong),
+        ("mmio_len", ctypes.c_uint32),
+        ("accel", ctypes.c_uint32),
+        ("capabilities", ctypes.c_uint16),
+        ("reserved", ctypes.c_uint16 * 2)
+        ]
 
 class Fb_bitfield:
     # TODO return members in order
@@ -106,7 +106,7 @@ class Framebuffer():
             print("Error: Can't open /dev/tty!")
             sys.exit(-1)
 
-    def get_fb_info(self):
+    def get_screen_info(self):
         '''Get fixed and variable screen info'''
         # TODO clean this up and error check
         var_fmt = "8I 3I 3I 3I 3I 16I 4I"
@@ -115,13 +115,13 @@ class Framebuffer():
         fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
         self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
 
-        fix_fmt = "16s L 4I 3H I L 2I 3H"  # white space is ignored
-        junk_buf = [bytes(0)] + [0 for i in range(15)]
-        fix_buf = struct.pack(fix_fmt, *junk_buf)
-        fb_fix_screen_info = fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fix_buf, True)
-        self.finfo = Finfo_struct(struct.unpack_from(fix_fmt, fb_fix_screen_info))
+        fixed_buf = Finfo_struct()
+        if(fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, buf, True) != 0):
+            print("Error getting fixed screen info!")
+            sys.exit(-1)
+        self.finfo = Finfo_struct.from_buffer_copy(fixed_buf)
 
-        # TODO: DO I NEED THIS??
+        # mmap the framebuffer device so fbp points to it
         self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
         self.fbp.seek(0)
 
