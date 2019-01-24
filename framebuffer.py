@@ -7,7 +7,6 @@
 
 import sys
 import fcntl
-import struct
 import mmap
 import ctypes
 
@@ -38,46 +37,46 @@ class Finfo_struct(ctypes.Structure):
         ("reserved", ctypes.c_uint16 * 2)
         ]
 
-class Fb_bitfield:
-    # TODO return members in order
-    def __init__(self, offset, length, msb_right):
-        self.offset = offset
-        self.length = length
-        self.msb_right = msb_right
+class Fb_bitfield(ctypes.Structure):
+    _fields_ = [
+        ("offset", ctypes.c_uint32),
+        ("length", ctypes.c_uint32),
+        ("msb_right", ctypes.c_uint32)
+        ]
 
 
-class Vinfo_struct:
-    # TODO return members in order
-    def __init__(self, args):
-        self.xres = args[0]
-        self.yres = args[1]
-        self.xres_virtual = args[2]
-        self.yres_virtual = args[3]
-        self.xoffset = args[4]
-        self.yoffset = args[5]
-        self.bits_per_pixel = args[6]
-        self.grayscale = args[7]
-        self.red = Fb_bitfield(args[8], args[9], args[10])
-        self.green = Fb_bitfield(args[11], args[12], args[13])
-        self.blue = Fb_bitfield(args[14], args[15], args[16])
-        self.transp = Fb_bitfield(args[17], args[18], args[19])
-        self.nonstd = args[20]
-        self.activate = args[21]
-        self.height = args[22]
-        self.width = args[23]
-        self.accel_flags = args[24]
-        self.pixclock = args[25]
-        self.left_margin = args[26]
-        self.right_margin = args[27]
-        self.upper_margin = args[28]
-        self.lower_margin = args[29]
-        self.hsync_len = args[30]
-        self.vsync_len = args[31]
-        self.sync = args[32]
-        self.vmode = args[33]
-        self.rotate = args[34]
-        self.colorspace = args[35]
-        self.reserved = args[36:]
+class Vinfo_struct(ctypes.Structure):
+    _fields_ = [
+        ("xres", ctypes.c_uint32),
+        ("yres", ctypes.c_uint32),
+        ("xres_virtual", ctypes.c_uint32),
+        ("yres_virtual", ctypes.c_uint32),
+        ("xoffset", ctypes.c_uint32),
+        ("yoffset", ctypes.c_uint32),
+        ("bits_per_pixel", ctypes.c_uint32),
+        ("grayscale", ctypes.c_uint32),
+        ("red", Fb_bitfield),
+        ("green", Fb_bitfield),
+        ("blue", Fb_bitfield),
+        ("transp", Fb_bitfield),
+        ("nonstd", ctypes.c_uint32),
+        ("activate", ctypes.c_uint32),
+        ("height", ctypes.c_uint32),
+        ("width", ctypes.c_uint32),
+        ("accel_flags", ctypes.c_uint32),
+        ("pixclock", ctypes.c_uint32),
+        ("left_margin", ctypes.c_uint32),
+        ("right_margin", ctypes.c_uint32),
+        ("upper_margin", ctypes.c_uint32),
+        ("lower_margin", ctypes.c_uint32),
+        ("hsync_len", ctypes.c_uint32),
+        ("vsync_len", ctypes.c_uint32),
+        ("sync", ctypes.c_uint32),
+        ("vmode", ctypes.c_uint32),
+        ("rotate", ctypes.c_uint32),
+        ("colorspace", ctypes.c_uint32),
+        ("reserved", ctypes.c_uint32 * 4)
+        ]
 
 
 class Framebuffer():
@@ -106,26 +105,37 @@ class Framebuffer():
             print("Error: Can't open /dev/tty!")
             sys.exit(-1)
 
-    def get_screen_info(self):
-        '''Get fixed and variable screen info'''
-        # TODO clean this up and error check
-        var_fmt = "8I 3I 3I 3I 3I 16I 4I"
-        junk_buf = [0 for i in range(40)]
-        var_buf = struct.pack(var_fmt, *junk_buf)
-        fb_var_screen_info = fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True)
-        self.vinfo = Vinfo_struct(struct.unpack_from(var_fmt, fb_var_screen_info))
-
+    def get_finfo(self):
         fixed_buf = Finfo_struct()
-        if(fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, buf, True) != 0):
+        if(fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fixed_buf, True) != 0):
             print("Error getting fixed screen info!")
             sys.exit(-1)
         self.finfo = Finfo_struct.from_buffer_copy(fixed_buf)
 
-        # mmap the framebuffer device so fbp points to it
+    def get_vinfo(self):
+        var_buf = Vinfo_struct()
+        if(fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True) != 0):
+            print("Error getting variable screen info!")
+            sys.exit(-1)
+        self.vinfo = Vinfo_struct.from_buffer_copy(var_buf)
+
+    def put_vinfo(self):
+        # TODO
+        pass
+
+    def memmap_fb(self):
+        '''mmap the framebuffer device so that fbp points to it'''
         self.fbp = mmap.mmap(self.dev.fileno(), self.finfo.smem_len)  # defaults are fine
         self.fbp.seek(0)
 
+    def setup(self):
+        '''get fixed and var info and setup memmap for framebuffer'''
+        self.get_finfo()
+        self.get_vinfo()
+        self.memmap_fb()
+
     def clear(self):
+        '''clear the framebuffer'''
         self.fbp.seek(0)
         self.fbp.write(bytes(0) * self.finfo.smem_len)
 
