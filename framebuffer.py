@@ -119,10 +119,11 @@ class Framebuffer():
 
     def put_vinfo(self):
         '''change variable info'''
-        # TODO: issues with this working properly
+        # TODO: issues with this
         vinfo = bytes(self.vinfo) # serialize ctype struct
-        if(fcntl.ioctl(self.dev, FBIOPUT_VSCREENINFO, vinfo, True) != 0):
-            print("Error setting variable screen info!")
+        res = fcntl.ioctl(self.dev, FBIOPUT_VSCREENINFO, vinfo, False)
+        # print(res == vinfo) # returning the vinfo data
+        # print("Error setting variable screen info!")
 
     def restore_vinfo(self):
         '''call this to "restore" the var info in case it was set'''
