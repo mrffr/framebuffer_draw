@@ -3,6 +3,7 @@
 # TODO:
 # FBIOPUT_VSCREENINFO
 # large assumptions
+# die sanely and restore tty
 
 import sys
 import fcntl
