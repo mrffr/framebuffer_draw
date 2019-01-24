@@ -18,6 +18,9 @@ def pix_colour(r, g, b, vinfo):
             (g << vinfo.green.offset) | 
             (b << vinfo.blue.offset))
 
+def bounds_check(f, x1, y1):
+    return x1 < f.vinfo.xres and y1 < f.vinfo.yres
+
 def draw_line(f, x1, y1, x2, y2, col):
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
@@ -28,6 +31,7 @@ def draw_line(f, x1, y1, x2, y2, col):
     if dx <= dy: err = -dy/2
 
     while 1:
+        if(not bounds_check(f, x1, y1)): return
         f.colour_pixels(pix_location(f, x1, y1), 1, col)
         if x1 == x2 and y1 == y2: return
         e2 = err
@@ -46,7 +50,7 @@ def draw_random_lines(f):
         draw_line(f,
                 random.randint(0, f.vinfo.xres),
                 random.randint(0, f.vinfo.yres),
-                random.randint(0, f.vinfo.xres),
+                random.randint(f.vinfo.xres, f.vinfo.xres),
                 random.randint(0, f.vinfo.yres),
                 col)
 
@@ -56,15 +60,15 @@ def main():
     f.setup()
     # print(f.finfo.__dict__)
     # print(f.vinfo.__dict__)
-    f.vinfo.xres = 800
-    f.vinfo.yres = 600
+    f.vinfo.xres = 1920
+    f.vinfo.yres = 1080
     f.vinfo.grayscale = 0
     f.vinfo.bits_per_pixel = 32
     f.put_vinfo()
 
     f.clear()
 
-    #draw_line(f, 0, 0, f.vinfo.xres, f.vinfo.yres, pix_colour(255, 255, 255, f.vinfo))
+    draw_line(f, 0, 0, f.vinfo.xres, f.vinfo.yres, pix_colour(255, 255, 255, f.vinfo))
 
     #for y in range(f.vinfo.yres):
         #location = (y + f.vinfo.yoffset) * f.finfo.line_length
@@ -72,7 +76,7 @@ def main():
         #f.colour_pixels(location, f.vinfo.xres, col)
 
     draw_random_lines(f)
-    time.sleep(1)
+    time.sleep(5)
 
     # since I set vinfo better restore it now
     f.restore_vinfo()

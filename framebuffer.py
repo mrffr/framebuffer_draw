@@ -148,9 +148,12 @@ class Framebuffer():
         self.fbp.write(bytes(1) * self.finfo.smem_len) # potential here
 
     def colour_pixels(self, offset, length, colour):
-        # prevent some out of bounds drawing - things will wrap around though
-        if offset + length >= self.finfo.smem_len or offset <= 0:
+        # prevent out of bounds crash
+        # -1 since length of 1 pixel is actually being placed at offset
+        # so is 0
+        if offset + length - 1 >= self.finfo.smem_len or offset <= 0:
             return
+
         self.fbp.seek(0)
         self.fbp.seek(offset)
         self.fbp.write(colour * length)
