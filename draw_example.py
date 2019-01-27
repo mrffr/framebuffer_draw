@@ -50,7 +50,7 @@ def draw_random_lines(f):
         draw_line(f,
                 random.randint(0, f.vinfo.xres),
                 random.randint(0, f.vinfo.yres),
-                random.randint(f.vinfo.xres, f.vinfo.xres),
+                random.randint(0, f.vinfo.xres),
                 random.randint(0, f.vinfo.yres),
                 col)
 
@@ -60,8 +60,8 @@ def main():
     f.setup()
     # print(f.finfo.__dict__)
     # print(f.vinfo.__dict__)
-    f.vinfo.xres = 1920
-    f.vinfo.yres = 1080
+    # f.vinfo.xres = 1920
+    # f.vinfo.yres = 1080
     f.vinfo.grayscale = 0
     f.vinfo.bits_per_pixel = 32
     f.put_vinfo()
@@ -76,7 +76,7 @@ def main():
         #f.colour_pixels(location, f.vinfo.xres, col)
 
     draw_random_lines(f)
-    time.sleep(5)
+    time.sleep(1)
 
     # since I set vinfo better restore it now
     f.restore_vinfo()
