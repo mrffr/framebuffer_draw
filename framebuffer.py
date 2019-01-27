@@ -4,6 +4,7 @@ import sys
 import fcntl
 import mmap
 import ctypes
+import traceback
 
 FBIOGET_VSCREENINFO = 0x4600
 FBIOPUT_VSCREENINFO = 0x4601
@@ -85,6 +86,10 @@ class Framebuffer():
         self.orig_vinfo = 0  # original var screen info
         self.fbp = 0  # frame buffer pointer
 
+        # if the program crashes with the tty set to KD_GRAPHICS
+        # it will not recover and you need to reboot so we need to recover
+        sys.excepthook = self._except_die
+
     def open(self):
         '''Open framebuffer and tty'''
         try:
@@ -97,23 +102,23 @@ class Framebuffer():
         try:
             # set tty to turn off cursor and blinking
             self.tty = open("/dev/tty", 'w')
-            # fcntl.ioctl(self.tty, KDSETMODE, KD_GRAPHICS)
-        except FileNotFoundError:
-            print("Error: Can't open /dev/tty!")
+            fcntl.ioctl(self.tty, KDSETMODE, KD_GRAPHICS)
+        except Exception as e:
+            print(e)
             sys.exit(-1)
 
     def get_finfo(self):
         fixed_buf = Finfo_struct()
         if(fcntl.ioctl(self.dev, FBIOGET_FSCREENINFO, fixed_buf, True) != 0):
             print("Error getting fixed screen info!")
-            self._close_fb()
+            self._except_die()
         self.finfo = Finfo_struct.from_buffer_copy(fixed_buf)
 
     def get_vinfo(self):
         var_buf = Vinfo_struct()
         if(fcntl.ioctl(self.dev, FBIOGET_VSCREENINFO, var_buf, True) != 0):
             print("Error getting variable screen info!")
-            self._close_fb()
+            self._except_die()
         self.vinfo = Vinfo_struct.from_buffer_copy(var_buf)
         self.orig_vinfo = Vinfo_struct.from_buffer_copy(var_buf)
 
@@ -158,14 +163,20 @@ class Framebuffer():
         self.fbp.seek(offset)
         self.fbp.write(colour * length)
 
-    def _close_fb(self):
-        # die and clean up otherwise bad things will happen
-        fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
-        self.dev.close()
-        self.tty.close()
-
     def close(self):
-        '''close the framebuffer'''
-        self.fbp.close()  # munmap
-        self._close_fb()
-        
+        '''close framebuffer'''
+        if self.fbp != 0: 
+            self.fbp.close()  # munmap
+        # close tty and reset to text mode
+        if self.tty != 0:
+            fcntl.ioctl(self.tty, KDSETMODE, KD_TEXT)
+            self.tty.close()
+        # close device
+        if self.dev != 0:
+            self.dev.close()
+
+    def _except_die(self, typ, val, tb):
+        # hook so if we do something bad the tty is restored
+        self.close() # cleanup first so error is displayed properly
+        traceback.print_exception(typ, val, tb)
+        sys.exit(-1)
