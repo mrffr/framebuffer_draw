@@ -21,6 +21,7 @@ def pix_colour(r, g, b, vinfo):
 def bounds_check(f, x1, y1):
     return x1 < f.vinfo.xres and y1 < f.vinfo.yres
 
+#bresenhams algorithm
 def draw_line(f, x1, y1, x2, y2, col):
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
